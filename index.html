@@ -181,7 +181,7 @@
   const defs = [
     ['icosa', new THREE.IcosahedronGeometry(.9, 0),   [-5.6,  2.6, -2], .5],
     ['torus', new THREE.TorusGeometry(.75, .28, 12, 28),[ 5.8,  3.0, -2.5], .55],
-    ['octa',  new THREE.OctahedronGeometry(.7, 0),    [ 4.9, -1.6,  1.5], .4],
+    ['octa',  new THREE.OctahedronGeometry(.7, 0),    [ 4.9, -1.6, -1.5], .4],
     ['knot',  new THREE.TorusKnotGeometry(.5,.16,64,10),[-7.0,  1.2, -2.5], .45],
     ['box',   new THREE.BoxGeometry(.8,.8,.8),        [ 6.4,  .8,  -1], .5],
     ['cyl',   new THREE.CylinderGeometry(.45,.45,1.1,20),[-3.9,  3.6, -3], .35],
@@ -234,7 +234,7 @@
       o.rotation.x += .004*o.userData.w*3; o.rotation.y += .005*o.userData.w*3;
       o.position.y = o.userData.base[1] + Math.sin(s*.8 + o.userData.ph)*.28;
     });
-    shapes.rotation.y = s*.05 + dragX;
+    shapes.rotation.y = Math.sin(s * .18) * .28 + dragX;   // 默认轻微摆动，拖拽可自由整圈旋转
     camera.position.x = mx*.9; camera.position.y = 1.2 - my*.5;
     camera.lookAt(0, .4, 0);
     starMat.opacity = .4 + Math.sin(s*2)*.12;
