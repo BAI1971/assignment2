@@ -17,7 +17,7 @@
     transform:translateY(-6%);transition:opacity .65s;font-family:Arial Black,Arial,sans-serif;white-space:nowrap;}
 
   /* ========== 角色 ========== */
-  #figure{position:fixed;z-index:3;left:50%;bottom:-4vh;height:88vh;transform:translateX(-50%);
+  #figure{position:fixed;z-index:3;left:50%;bottom:1vh;height:86vh;transform:translateX(-50%);
     pointer-events:none;filter:drop-shadow(0 40px 60px rgba(0,0,0,.6));
     transition:transform .65s cubic-bezier(.4,0,.2,1),filter .65s;}
   #figure img{height:100%;width:auto;display:block;}
@@ -146,7 +146,7 @@
     if (window.__setAccent) window.__setAccent(s.accent);
     // 角色轻微视差：每个板块给一点不同的偏移
     const fig = $('figure');
-    const dx = [-3, 2, -1.5, 2.5][i], dh = [88, 86, 88.5, 87][i];
+    const dx = [-3, 2, -1.5, 2.5][i], dh = [86, 84, 86.5, 85][i];
     fig.style.transform = `translateX(calc(-50% + ${dx}vw))`;
     fig.style.height = dh + 'vh';
   }
