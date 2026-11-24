@@ -7,20 +7,16 @@
 <style>
   /* ========== 全局 ========== */
   *{margin:0;padding:0;box-sizing:border-box;}
+  :root{ --bg:#17131a; --panel:rgba(255,255,255,.06); --ink:#f4efe6;
+    --accent:#f97316; /* 由 JS 按板块切换 */ }
   html,body{height:100%;overflow:hidden;background:var(--bg);font-family:"PingFang SC","Microsoft YaHei",sans-serif;
-    --bg:#17131a; --panel:rgba(255,255,255,.06); --ink:#f4efe6;
-    --accent:#f97316; /* accent 由 JS 按板块切换 */
     transition:background .65s cubic-bezier(.4,0,.2,1);}
   canvas#stage{position:fixed;inset:0;z-index:1;display:block;}
   #ghost{position:fixed;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;pointer-events:none;}
   #ghost span{font-weight:900;font-size:clamp(120px,17vw,300px);letter-spacing:.05em;color:rgba(255,255,255,.055);
     transform:translateY(-6%);transition:opacity .65s;font-family:Arial Black,Arial,sans-serif;white-space:nowrap;}
 
-  /* ========== 角色 ========== */
-  #figure{position:fixed;z-index:3;left:50%;bottom:1vh;height:86vh;transform:translateX(-50%);
-    pointer-events:none;filter:drop-shadow(0 40px 60px rgba(0,0,0,.6));
-    transition:transform .65s cubic-bezier(.4,0,.2,1),filter .65s;}
-  #figure img{height:100%;width:auto;display:block;}
+  /* 中央主视觉由 Three.js 画布内的几何雕塑承担（见脚本） */
 
   /* ========== 顶部品牌 ========== */
   #brand{position:fixed;top:26px;left:34px;z-index:6;display:flex;align-items:center;gap:12px;}
@@ -59,14 +55,11 @@
   #links a:hover{color:var(--accent);}
 
   /* 进场动画 */
-  #figure,#info,#nav,#cta,#brand,#links{animation:in .9s cubic-bezier(.2,.7,.2,1) both;}
+  #info,#nav,#cta,#brand,#links{animation:in .9s cubic-bezier(.2,.7,.2,1) both;}
   @keyframes in{from{opacity:0;transform:translateY(24px);}to{opacity:1;}}
-  #figure{animation-name:inF;}
-  @keyframes inF{from{opacity:0;transform:translateX(-50%) translateY(30px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 
   @media (max-width:760px){
-    #figure{height:62vh;bottom:16vh;}
-    #info{max-width:86vw;bottom:30vh;}
+    #info{max-width:86vw;bottom:10vh;}
     #ghost span{font-size:34vw;}
   }
 </style>
@@ -77,9 +70,6 @@
 
   <!-- 巨型幽灵背景字 -->
   <div id="ghost"><span id="ghostTxt">ABOUT</span></div>
-
-  <!-- 3D 角色立牌（AI 生成的 3D 角色概念图） -->
-  <div id="figure"><img src="images/avatar.png" alt="3D 角色立牌"></div>
 
   <!-- 顶部品牌 -->
   <div id="brand"><div class="logo">白</div><div class="name">BAI MINGRUI</div></div>
@@ -144,11 +134,6 @@
     $('idx').textContent = String(i+1).padStart(2,'0') + ' / ' + String(SECTIONS.length).padStart(2,'0');
     cur = i;
     if (window.__setAccent) window.__setAccent(s.accent);
-    // 角色轻微视差：每个板块给一点不同的偏移
-    const fig = $('figure');
-    const dx = [-3, 2, -1.5, 2.5][i], dh = [86, 84, 86.5, 85][i];
-    fig.style.transform = `translateX(calc(-50% + ${dx}vw))`;
-    fig.style.height = dh + 'vh';
   }
   $('prev').onclick = ()=> render((cur-1+SECTIONS.length)%SECTIONS.length);
   $('next').onclick = ()=> render((cur+1)%SECTIONS.length);
@@ -203,6 +188,18 @@
   const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, .045, 10, 90), matOf({emissive:0xf97316, emissiveIntensity:.6}));
   ring.rotation.x = Math.PI/2; ring.position.y = .14; podium.add(ring);
 
+  // 中央主视觉：多面体核心 + 线框护壳 + 双轨道环（悬浮于展示台上方）
+  const emissMats = [];
+  const hero = new THREE.Group(); hero.position.set(0, .55, 0); scene.add(hero);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 0), matOf({roughness:.3, metalness:.6, emissive:0xf97316, emissiveIntensity:.18}));
+  hero.add(core); emissMats.push(core.material);
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(1.62, 1), wireOf());
+  hero.add(shell);
+  const orbitA = new THREE.Mesh(new THREE.TorusGeometry(2.3, .035, 10, 90), matOf({emissive:0xf97316, emissiveIntensity:.55, roughness:.3, metalness:.6}));
+  orbitA.rotation.x = Math.PI/2.6; hero.add(orbitA); emissMats.push(orbitA.material);
+  const orbitB = new THREE.Mesh(new THREE.TorusGeometry(2.3, .035, 10, 90), matOf({emissive:0xf97316, emissiveIntensity:.55, roughness:.3, metalness:.6}));
+  orbitB.rotation.set(Math.PI/2.2, 0, Math.PI/3); hero.add(orbitB); emissMats.push(orbitB.material);
+
   // 粒子星尘
   const N = 500, pos = new Float32Array(N*3);
   for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-.5)*26; pos[i*3+1]=(Math.random()-.5)*14; pos[i*3+2]=(Math.random()-.5)*16-2; }
@@ -215,7 +212,7 @@
     const c = new THREE.Color(hex);
     accentMats.forEach(m=> m.color.lerp(c, 1)); // 直接置色（CSS 侧已有 .65s 过渡）
     wireMats.forEach(m=> m.color.copy(c));
-    ring.material.emissive.copy(c); rim.color.copy(c);
+    ring.material.emissive.copy(c); emissMats.forEach(m=> m.emissive.copy(c)); rim.color.copy(c);
   };
 
   // 鼠标交互：移动视差 + 拖拽旋转几何群组
@@ -235,6 +232,11 @@
       o.position.y = o.userData.base[1] + Math.sin(s*.8 + o.userData.ph)*.28;
     });
     shapes.rotation.y = Math.sin(s * .18) * .28 + dragX;   // 默认轻微摆动，拖拽可自由整圈旋转
+    // 中央雕塑自转 + 浮沉，拖拽时同步偏转
+    hero.rotation.y = s * .25 + dragX * .5;
+    core.rotation.x += .006; core.rotation.y += .008;
+    shell.rotation.y -= .004; shell.rotation.x = Math.sin(s * .3) * .15;
+    hero.position.y = .55 + Math.sin(s * .9) * .15;
     camera.position.x = mx*.9; camera.position.y = 1.2 - my*.5;
     camera.lookAt(0, .4, 0);
     starMat.opacity = .4 + Math.sin(s*2)*.12;
