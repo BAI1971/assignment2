@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>白名睿 · 3D 交互个人主页</title>
+<style>
+  /* ========== 全局 ========== */
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;background:var(--bg);font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    --bg:#17131a; --panel:rgba(255,255,255,.06); --ink:#f4efe6;
+    --accent:#f97316; /* accent 由 JS 按板块切换 */
+    transition:background .65s cubic-bezier(.4,0,.2,1);}
+  canvas#stage{position:fixed;inset:0;z-index:1;display:block;}
+  #ghost{position:fixed;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+  #ghost span{font-weight:900;font-size:clamp(120px,17vw,300px);letter-spacing:.05em;color:rgba(255,255,255,.055);
+    transform:translateY(-6%);transition:opacity .65s;font-family:Arial Black,Arial,sans-serif;white-space:nowrap;}
+
+  /* ========== 角色 ========== */
+  #figure{position:fixed;z-index:3;left:50%;bottom:-4vh;height:88vh;transform:translateX(-50%);
+    pointer-events:none;filter:drop-shadow(0 40px 60px rgba(0,0,0,.6));
+    transition:transform .65s cubic-bezier(.4,0,.2,1),filter .65s;}
+  #figure img{height:100%;width:auto;display:block;}
+
+  /* ========== 顶部品牌 ========== */
+  #brand{position:fixed;top:26px;left:34px;z-index:6;display:flex;align-items:center;gap:12px;}
+  #brand .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-weight:900;color:#17131a;transition:background .65s;}
+  #brand .name{color:rgba(255,255,255,.9);letter-spacing:.3em;font-size:14px;font-weight:600;}
+
+  /* ========== 左下信息区 ========== */
+  #info{position:fixed;left:34px;bottom:8vh;z-index:6;max-width:400px;}
+  #info .kicker{color:var(--accent);letter-spacing:.42em;font-size:13px;font-weight:700;margin-bottom:10px;transition:color .65s;}
+  #info h1{color:var(--ink);font-size:clamp(30px,4vw,46px);line-height:1.15;margin-bottom:16px;letter-spacing:.04em;}
+  #info p{color:rgba(255,255,255,.78);font-size:15px;line-height:1.9;margin-bottom:22px;}
+  #info p b{color:#fff;}
+  #info ul{list-style:none;display:flex;flex-wrap:wrap;gap:8px;}
+  #info ul li{background:var(--panel);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.85);
+    padding:7px 14px;border-radius:999px;font-size:13px;letter-spacing:.06em;}
+  #info ul li.hot{background:var(--accent);border-color:transparent;color:#17131a;font-weight:700;transition:background .65s;}
+  #info a.link{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);
+    transition:color .65s,border-color .65s;}
+
+  /* ========== 箭头 ========== */
+  #nav{position:fixed;left:34px;bottom:26px;z-index:6;display:flex;gap:14px;align-items:center;}
+  #nav button{width:52px;height:52px;border-radius:50%;background:transparent;border:2px solid rgba(255,255,255,.75);
+    color:#fff;font-size:20px;cursor:pointer;transition:.25s;}
+  #nav button:hover{background:var(--accent);border-color:var(--accent);color:#17131a;transform:scale(1.06);}
+  #nav .idx{color:rgba(255,255,255,.6);font-size:13px;letter-spacing:.3em;margin-left:8px;}
+
+  /* ========== 右下 / 右上 ========== */
+  #cta{position:fixed;right:40px;bottom:30px;z-index:6;}
+  #cta a{color:#fff;font-weight:900;font-size:clamp(20px,2.4vw,30px);letter-spacing:.06em;text-decoration:none;
+    display:flex;align-items:center;gap:12px;font-family:Arial Black,Arial,sans-serif;}
+  #cta a .arr{color:var(--accent);transition:color .65s,transform .25s;}
+  #cta a:hover .arr{transform:translateX(6px);}
+  #links{position:fixed;top:30px;right:40px;z-index:6;display:flex;gap:18px;}
+  #links a{color:rgba(255,255,255,.65);font-size:13px;letter-spacing:.2em;text-decoration:none;transition:.25s;}
+  #links a:hover{color:var(--accent);}
+
+  /* 进场动画 */
+  #figure,#info,#nav,#cta,#brand,#links{animation:in .9s cubic-bezier(.2,.7,.2,1) both;}
+  @keyframes in{from{opacity:0;transform:translateY(24px);}to{opacity:1;}}
+  #figure{animation-name:inF;}
+  @keyframes inF{from{opacity:0;transform:translateX(-50%) translateY(30px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+
+  @media (max-width:760px){
+    #figure{height:62vh;bottom:16vh;}
+    #info{max-width:86vw;bottom:30vh;}
+    #ghost span{font-size:34vw;}
+  }
+</style>
+</head>
+<body>
+  <!-- Three.js 3D 舞台（漂浮几何体 / 展示台 / 粒子星尘） -->
+  <canvas id="stage"></canvas>
+
+  <!-- 巨型幽灵背景字 -->
+  <div id="ghost"><span id="ghostTxt">ABOUT</span></div>
+
+  <!-- 3D 角色立牌（AI 生成的 3D 角色概念图） -->
+  <div id="figure"><img src="images/avatar.png" alt="3D 角色立牌"></div>
+
+  <!-- 顶部品牌 -->
+  <div id="brand"><div class="logo">白</div><div class="name">BAI MINGRUI</div></div>
+  <div id="links">
+    <a href="https://bai1971.github.io/classic-novel-video/" target="_blank">作业1·名著视频</a>
+    <a href="https://bai1971.github.io/assignment4/" target="_blank">作业4·悬疑PPT</a>
+    <a href="mailto:baimingrui@nwu.edu.cn">CONTACT</a>
+  </div>
+
+  <!-- 左下信息区（JS 切换板块内容） -->
+  <div id="info">
+    <div class="kicker" id="kicker">01 / ABOUT ME</div>
+    <h1 id="title">你好，我是白名睿</h1>
+    <p id="desc"></p>
+    <ul id="tags"></ul>
+  </div>
+
+  <!-- 箭头导航 -->
+  <div id="nav">
+    <button id="prev" aria-label="上一板块">←</button>
+    <button id="next" aria-label="下一板块">→</button>
+    <span class="idx" id="idx">01 / 04</span>
+  </div>
+
+  <!-- 右下 CTA -->
+  <div id="cta"><a href="https://bai1971.github.io/assignment4/" target="_blank">DISCOVER IT <span class="arr">→</span></a></div>
+
+  <script src="vendor/three.min.js"></script>
+  <script>
+  /* ==================== 板块数据 ==================== */
+  const SECTIONS = [
+    { ghost:'ABOUT', accent:'#f97316', bg:'#17131a', kick:'01 / ABOUT ME',
+      title:'你好，我是白名睿',
+      desc:'西北大学新闻传播学院 2025 级本科生，院团委组织部干事。白天上课，晚上剪片，热衷用 AI 与新媒体把想法做成看得见的作品。',
+      tags:[['西北大学',1],['新闻传播学院',0],['2025 级',0],['院团委组织部',0]] },
+    { ghost:'HONOR', accent:'#e11d48', bg:'#1a0f14', kick:'02 / HONORS',
+      title:'荣誉与经历',
+      desc:'拿过省级朗诵与广告艺术大赛的奖，也在三下乡和推普周的志愿现场跑过腿。作品与热情都在路上。',
+      tags:[['丝路朗诵·省二',1],['大广赛·省二 ×2',1],['广播之声·金奖',1],['中华经典诵读·校一等',0],['三下乡实践',0],['推普周志愿',0]] },
+    { ghost:'WORKS', accent:'#22d3ee', bg:'#0e161c', kick:'03 / WORKS',
+      title:'我的作品集',
+      desc:'名著讲解视频《红楼梦》与悬疑主题演示《无人生还》均已上线，点击右上角即可直达。这一页，是我的第 2 次作业。',
+      tags:[['红楼梦·讲解视频',1],['无人生还·悬疑PPT',1],['3D 交互主页·本页',0]] },
+    { ghost:'SKILL', accent:'#facc15', bg:'#191509', kick:'04 / SKILLS',
+      title:'工具箱',
+      desc:'从剪辑到建站：剪映与 AI 视频工具链、演示设计、新闻写作、摄影，以及正在进阶的 HTML / CSS。',
+      tags:[['视频剪辑',1],['AI 工作流',1],['PPT 设计',0],['新闻写作',0],['摄影',0],['HTML/CSS',0]] },
+  ];
+
+  const $ = id => document.getElementById(id);
+  let cur = 0;
+
+  function render(i){
+    const s = SECTIONS[i];
+    document.documentElement.style.setProperty('--accent', s.accent);
+    document.body.style.background = s.bg;
+    $('ghostTxt').textContent = s.ghost;
+    $('kicker').textContent = s.kick;
+    $('title').textContent = s.title;
+    $('desc').innerHTML = s.desc;
+    $('tags').innerHTML = s.tags.map(t=>`<li class="${t[1]?'hot':''}">${t[0]}</li>`).join('');
+    $('idx').textContent = String(i+1).padStart(2,'0') + ' / ' + String(SECTIONS.length).padStart(2,'0');
+    cur = i;
+    if (window.__setAccent) window.__setAccent(s.accent);
+    // 角色轻微视差：每个板块给一点不同的偏移
+    const fig = $('figure');
+    const dx = [-3, 2, -1.5, 2.5][i], dh = [88, 86, 88.5, 87][i];
+    fig.style.transform = `translateX(calc(-50% + ${dx}vw))`;
+    fig.style.height = dh + 'vh';
+  }
+  $('prev').onclick = ()=> render((cur-1+SECTIONS.length)%SECTIONS.length);
+  $('next').onclick = ()=> render((cur+1)%SECTIONS.length);
+  document.addEventListener('keydown', e=>{
+    if(e.key==='ArrowLeft') $('prev').click();
+    if(e.key==='ArrowRight') $('next').click();
+  });
+
+  /* ==================== Three.js 3D 舞台 ==================== */
+  const canvas = $('stage');
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 100);
+  camera.position.set(0, 1.2, 9);
+
+  // 灯光：主光 + accent 轮廓光
+  scene.add(new THREE.AmbientLight(0xffffff, .35));
+  const key = new THREE.DirectionalLight(0xffffff, .9); key.position.set(5, 8, 6); scene.add(key);
+  const rim = new THREE.PointLight(0xf97316, 1.6, 40); rim.position.set(-6, 3, -4); scene.add(rim);
+
+  // 材质统一走 accent 色，板块切换时统一过渡
+  const accentMats = [];
+  const matOf = (extra={}) => { const m = new THREE.MeshStandardMaterial(Object.assign({color:0xf97316, roughness:.35, metalness:.55}, extra)); accentMats.push(m); return m; };
+  const wireMats = [];
+  const wireOf = () => { const m = new THREE.MeshBasicMaterial({color:0xf97316, wireframe:true, transparent:true, opacity:.35}); wireMats.push(m); return m; };
+
+  // 环绕漂浮几何体
+  const shapes = new THREE.Group(); scene.add(shapes);
+  const defs = [
+    ['icosa', new THREE.IcosahedronGeometry(.9, 0),   [-5.6,  2.6, -2], .5],
+    ['torus', new THREE.TorusGeometry(.75, .28, 12, 28),[ 5.8,  3.0, -2.5], .55],
+    ['octa',  new THREE.OctahedronGeometry(.7, 0),    [ 4.9, -1.6,  1.5], .4],
+    ['knot',  new THREE.TorusKnotGeometry(.5,.16,64,10),[-7.0,  1.2, -2.5], .45],
+    ['box',   new THREE.BoxGeometry(.8,.8,.8),        [ 6.4,  .8,  -1], .5],
+    ['cyl',   new THREE.CylinderGeometry(.45,.45,1.1,20),[-3.9,  3.6, -3], .35],
+  ];
+  const solids = [];
+  defs.forEach(([name, geo, pos, w], k)=>{
+    const solid = new THREE.Mesh(geo, matOf({metalness:k%2? .7:.3}));
+    solid.position.set(...pos); solid.rotation.set(Math.random()*3, Math.random()*3, 0);
+    const wire = new THREE.Mesh(geo, wireOf()); wire.scale.setScalar(1.28);
+    solid.add(wire);
+    solid.userData = {base:pos.slice(), ph:Math.random()*6.28, w};
+    shapes.add(solid); solids.push(solid);
+  });
+
+  // 中央展示台（圆盘 + 圆环）
+  const podium = new THREE.Group(); podium.position.set(0, -3.4, 0); scene.add(podium);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, .22, 64), matOf({roughness:.25, metalness:.8, transparent:true, opacity:.9}));
+  podium.add(disc);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, .045, 10, 90), matOf({emissive:0xf97316, emissiveIntensity:.6}));
+  ring.rotation.x = Math.PI/2; ring.position.y = .14; podium.add(ring);
+
+  // 粒子星尘
+  const N = 500, pos = new Float32Array(N*3);
+  for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-.5)*26; pos[i*3+1]=(Math.random()-.5)*14; pos[i*3+2]=(Math.random()-.5)*16-2; }
+  const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const starMat = new THREE.PointsMaterial({color:0xffffff, size:.045, transparent:true, opacity:.55});
+  scene.add(new THREE.Points(starGeo, starMat));
+
+  // accent 色过渡
+  window.__setAccent = hex => {
+    const c = new THREE.Color(hex);
+    accentMats.forEach(m=> m.color.lerp(c, 1)); // 直接置色（CSS 侧已有 .65s 过渡）
+    wireMats.forEach(m=> m.color.copy(c));
+    ring.material.emissive.copy(c); rim.color.copy(c);
+  };
+
+  // 鼠标交互：移动视差 + 拖拽旋转几何群组
+  let mx=0, my=0, dragX=0, dragging=false, lastX=0;
+  addEventListener('pointermove', e=>{
+    mx = (e.clientX/innerWidth-.5)*2; my = (e.clientY/innerHeight-.5)*2;
+    if(dragging){ dragX += (e.clientX-lastX)*.006; lastX = e.clientX; }
+  });
+  addEventListener('pointerdown', e=>{ if(e.target===canvas){ dragging=true; lastX=e.clientX; } });
+  addEventListener('pointerup', ()=> dragging=false);
+
+  function tick(t){
+    requestAnimationFrame(tick);
+    const s = t/1000;
+    solids.forEach(o=>{
+      o.rotation.x += .004*o.userData.w*3; o.rotation.y += .005*o.userData.w*3;
+      o.position.y = o.userData.base[1] + Math.sin(s*.8 + o.userData.ph)*.28;
+    });
+    shapes.rotation.y = s*.05 + dragX;
+    camera.position.x = mx*.9; camera.position.y = 1.2 - my*.5;
+    camera.lookAt(0, .4, 0);
+    starMat.opacity = .4 + Math.sin(s*2)*.12;
+    renderer.setSize(innerWidth, innerHeight, false);
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(tick);
+
+  const startSec = Math.min(Math.max(parseInt(new URLSearchParams(location.search).get('s') || 0, 10) || 0, 0), SECTIONS.length - 1);
+  render(startSec);
+  </script>
+</body>
+</html>
